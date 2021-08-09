@@ -1,0 +1,8 @@
+{
+  "jupyter.lab.shortcuts": [],
+  "title": "jupyterlab-knowledge-graph",
+  "description": "jupyterlab-knowledge-graph settings.",
+  "type": "object",
+  "properties": {},
+  "additionalProperties": false
+}
