@@ -1,7 +1,6 @@
-
 import json
 from pathlib import Path
-
+from .config import KnowledgeGraphConfiguration
 from ._version import __version__
 
 HERE = Path(__file__).parent.resolve()
@@ -9,21 +8,16 @@ HERE = Path(__file__).parent.resolve()
 with (HERE / "labextension" / "package.json").open() as fid:
     data = json.load(fid)
 
-def _jupyter_labextension_paths():
-    return [{
-        "src": "labextension",
-        "dest": data["name"]
-    }]
 
+def _jupyter_labextension_paths():
+    return [{"src": "labextension", "dest": data["name"]}]
 
 
 from .handlers import setup_handlers
 
 
 def _jupyter_server_extension_points():
-    return [{
-        "module": "jupyterlab_knowledge_graph"
-    }]
+    return [{"module": "jupyterlab_knowledge_graph"}]
 
 
 def _load_jupyter_server_extension(server_app):
@@ -34,9 +28,12 @@ def _load_jupyter_server_extension(server_app):
     server_app: jupyterlab.labapp.LabApp
         JupyterLab application instance
     """
-    setup_handlers(server_app.web_app)
-    server_app.log.info("Registered HelloWorld extension at URL path /jupyterlab-knowledge-graph")
+    config = KnowledgeGraphConfiguration(parent=server_app)
+    setup_handlers(server_app.web_app, config)
+    server_app.log.info(
+        "Registered HelloWorld extension at URL path /jupyterlab-knowledge-graph"
+    )
+
 
 # For backward compatibility with notebook server - useful for Binder/JupyterHub
 load_jupyter_server_extension = _load_jupyter_server_extension
-
