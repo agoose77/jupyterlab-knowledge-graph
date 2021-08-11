@@ -10,10 +10,13 @@ This extension is composed of a Python package named `jupyterlab_knowledge_graph
 which bundles the frontend extension and a NPM package named `jupyterlab-knowledge-graph`
 for the frontend extension itself.
 
-## Notes
+## Code Notes
 * `RecordManager` tracks all known `Record`s with their associated `Link`s to other `Record`s. 
 * `ParserRegistry` manages the parsing of JupyterLab documents into `Record`s.
 * `KnowledgeGraph` displays a collection of `Records` using Cytoscape.js
+
+## Future Plans
+Currently, only hypertext links between documents are supported. It might be useful / interesting to extend this to other kinds of relations, e.g. visualise the Python notebooks that link to document X and import library `Y`. To do so, we might wish to move to a graph database. 
 
 
 ## Requirements
