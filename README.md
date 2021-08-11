@@ -10,8 +10,9 @@ which bundles the frontend extension and a NPM package named `jupyterlab-knowled
 for the frontend extension itself.
 
 ## Notes
-* `DocumentManager` tracks all known `Document`s with their associated `Link`s to other `Document`s. 
-* `ParserRegistry`  
+* `RecordManager` tracks all known `Record`s with their associated `Link`s to other `Record`s. 
+* `ParserRegistry` manages the parsing of JupyterLab documents into `Record`s.
+* `KnowledgeGraph` displays a collection of `Records` using Cytoscape.js
 
 
 ## Requirements
