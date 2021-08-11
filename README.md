@@ -1,6 +1,6 @@
 # jupyterlab_knowledge_graph
 
-![Github Actions Status](https://github.com/github_username/jupyterlab-knowledge-graph/workflows/Build/badge.svg)[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/github_username/jupyterlab-knowledge-graph/main?urlpath=lab)
+![Github Actions Status](https://github.com/agoose77/jupyterlab-knowledge-graph/workflows/Build/badge.svg)[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/agoose77/jupyterlab-knowledge-graph/main?urlpath=lab)
 
 A JupyterLab extension to add a [Foam](https://github.com/foambubble/foam)-like knowledge graph to JupyterLab.
 
