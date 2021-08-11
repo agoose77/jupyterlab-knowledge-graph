@@ -173,7 +173,6 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
     const content = new KnowledgeGraphWidget(docRegistry); // Track and restore the widget state
     content.documentSelected.connect((widget: any, path: string) => {
-      console.log("Clicked", path)
       docManager.openOrReveal(path);
     });
 
