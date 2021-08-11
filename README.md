@@ -6,8 +6,12 @@ A JupyterLab extension.
 
 
 This extension is composed of a Python package named `jupyterlab_knowledge_graph`
-for the server extension and a NPM package named `jupyterlab-knowledge-graph`
-for the frontend extension.
+which bundles the frontend extension and a NPM package named `jupyterlab-knowledge-graph`
+for the frontend extension itself.
+
+## Notes
+* `DocumentManager` tracks all known `Document`s with their associated `Link`s to other `Document`s. 
+* `ParserRegistry`  
 
 
 ## Requirements
@@ -33,14 +37,7 @@ pip uninstall jupyterlab_knowledge_graph
 
 ## Troubleshoot
 
-If you are seeing the frontend extension, but it is not working, check
-that the server extension is enabled:
-
-```bash
-jupyter server extension list
-```
-
-If the server extension is installed and enabled, but you are not seeing
+If you are not seeing
 the frontend extension, check the frontend extension is installed:
 
 ```bash
@@ -65,8 +62,6 @@ The `jlpm` command is JupyterLab's pinned version of
 pip install -e .
 # Link your development version of the extension with JupyterLab
 jupyter labextension develop . --overwrite
-# Server extension must be manually installed in develop mode
-jupyter server extension enable jupyterlab_knowledge_graph
 # Rebuild extension Typescript source after making changes
 jlpm run build
 ```
@@ -91,8 +86,6 @@ jupyter lab build --minimize=False
 ### Development uninstall
 
 ```bash
-# Server extension must be manually disabled in develop mode
-jupyter server extension disable jupyterlab_knowledge_graph
 pip uninstall jupyterlab_knowledge_graph
 ```
 

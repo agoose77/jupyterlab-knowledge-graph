@@ -6,15 +6,15 @@ import cytoscape, {
   ElementDefinition,
   NodeCollection,
 } from "cytoscape";
-import { DocumentRegistry } from "./document";
+import { RecordManager } from "./record";
 import { ISignal, Signal } from "@lumino/signaling";
 
 export class KnowledgeGraphWidget extends Widget {
-  private _documentSelected = new Signal<this, string>(this);
+  private _recordSelected = new Signal<this, string>(this);
 
   // Get signal for document selection
-  get documentSelected(): ISignal<this, string> {
-    return this._documentSelected;
+  get recordSelected(): ISignal<this, string> {
+    return this._recordSelected;
   }
 
   /**
@@ -23,12 +23,12 @@ export class KnowledgeGraphWidget extends Widget {
   readonly div: HTMLDivElement;
 
   private readonly _cy: Core;
-  private readonly _registry: DocumentRegistry;
+  private readonly _recordManager: RecordManager;
 
   /**
    * Construct a new Knowledge-Graph widget.
    */
-  constructor(registry: DocumentRegistry) {
+  constructor(recordManager: RecordManager) {
     super();
 
     // Add an image element to the panel
@@ -71,6 +71,7 @@ export class KnowledgeGraphWidget extends Widget {
         {
           selector: ".active-backlink",
           style: {
+            "target-arrow-color": "#4080d0",
             "line-color": "#4080d0",
           },
         },
@@ -112,16 +113,18 @@ export class KnowledgeGraphWidget extends Widget {
     // Register event handlers
     this._cy.on("click", (event) => {
       const elem = event.target;
-
-      if (elem.group() === "nodes") {
+      if (elem === this._cy) {
+        return;
+      }
+      if (elem.isNode()) {
         const path = elem.data("path");
-        this._documentSelected.emit(path);
+        this._recordSelected.emit(path);
       }
     });
 
     // Register document handler
-    this._registry = registry;
-    registry.documentsChanged.connect((_, docs) => {
+    this._recordManager = recordManager;
+    recordManager.recordsChanged.connect((_, docs) => {
       this._updateElements();
       this._updateLayout();
     });
@@ -129,16 +132,16 @@ export class KnowledgeGraphWidget extends Widget {
 
   private _activeNodes: NodeCollection | null = null;
 
-  private _currentDocumentPath: string = "";
+  private _currentRecordPath: string = "";
 
   // Get path of current document
-  get currentDocumentPath(): string {
-    return this._currentDocumentPath;
+  get currentRecordPath(): string {
+    return this._currentRecordPath;
   }
 
   // Set path of current document
-  set currentDocumentPath(path: string) {
-    this._currentDocumentPath = path;
+  set currentRecordPath(path: string) {
+    this._currentRecordPath = path;
 
     this._cy.batch(() => {
       // Cleanup existing selection
@@ -177,32 +180,32 @@ export class KnowledgeGraphWidget extends Widget {
 
   // Update graph data
   private _updateElements() {
-    const documents = this._registry.documents;
+    const records = this._recordManager.records;
 
     let nodes: ElementDefinition[] = [];
     let validURIs: string[] = [];
 
-    Object.values(documents).forEach((doc) => {
-      validURIs.push(doc.uri);
+    Object.values(records).forEach((record) => {
+      validURIs.push(record.uri);
     });
 
-    Object.values(documents).forEach((doc) => {
+    Object.values(records).forEach((record) => {
       nodes.push(<ElementDefinition>{
         data: <ElementDataDefinition>{
-          id: doc.uri,
-          label: this._truncateLabel(doc.name),
-          path: doc.path,
+          id: record.uri,
+          label: this._truncateLabel(record.name),
+          path: record.path,
         },
       });
 
-      doc.links.forEach((link) => {
+      record.links.forEach((link) => {
         if (!validURIs.includes(link.uri)) {
           return;
         }
         nodes.push(<ElementDefinition>{
           data: <ElementDataDefinition>{
-            id: `${doc.uri}-${link.uri}`,
-            source: doc.uri,
+            id: `${record.uri}-${link.uri}`,
+            source: record.uri,
             target: link.uri,
             label: "",
           },

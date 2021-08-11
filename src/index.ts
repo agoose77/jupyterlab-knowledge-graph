@@ -5,9 +5,8 @@ import {
 } from "@jupyterlab/application";
 import { IDocumentManager } from "@jupyterlab/docmanager";
 import { MainAreaWidget } from "@jupyterlab/apputils";
-import { DocumentRegistry } from "./document";
+import { RecordManager } from "./record";
 
-import { ISettingRegistry } from "@jupyterlab/settingregistry";
 import { KnowledgeGraphWidget } from "./widget";
 
 import { DocumentWidget } from "@jupyterlab/docregistry";
@@ -20,50 +19,24 @@ import {
   ModelParserRegistry,
   parseNotebookDocument,
   parseMarkdownDocument,
-} from "./model";
+} from "./parser";
+import { recursiveWalk } from "./contents";
 
-async function recursiveWalk(
+/**
+ * Build initial graph from content manager files
+ */
+export async function buildInitialGraph(
   contents: Contents.IManager,
-  path: string,
-  filter: any
-): Promise<Contents.IModel[]> {
-  let documents: Contents.IModel[] = [];
-  let dirModels: Contents.IModel[] = [await contents.get(path)];
-
-  let dirModel;
-  while ((dirModel = dirModels.shift())) {
-    // For each content in directory
-    for (let model of dirModel.content) {
-      // Ignore non-filtered paths
-      if (!filter(model)) {
-        continue;
-      }
-
-      // Push new directories to stack
-      if (model.type === "directory") {
-        // Retrieve model metadata
-        dirModels.push(await contents.get(model.path));
-      } else {
-        documents.push(model);
-      }
-    }
-  }
-
-  return documents;
-}
-
-export async function buildGraph(
-  contents: Contents.IManager,
-  docRegistry: DocumentRegistry,
+  docManager: RecordManager,
   parserRegistry: ModelParserRegistry
 ) {
   const filterModels = (model: Contents.IModel) => {
+    // TODO make this configurable
     if (model.type == "directory") {
       return model.name !== "node_modules";
     }
-    // Only load notebooks or MD files
-    const ext = PathExt.extname(model.path);
-    return ext == ".md" || ext == ".ipynb";
+    // Only load supported fields
+    return PathExt.extname(model.path) in parserRegistry.parsers;
   };
   // Load known models
   const models = await recursiveWalk(contents, "/", filterModels);
@@ -71,8 +44,8 @@ export async function buildGraph(
   // Add loaded models
   for (let model of models) {
     const fullModel = await contents.get(model.path);
-    const document = await parserRegistry.parse(fullModel);
-    docRegistry.add(document);
+    const record = await parserRegistry.parse(fullModel);
+    docManager.add(record);
   }
 }
 
@@ -89,7 +62,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
     IMarkdownViewerTracker,
     ILabShell,
   ],
-  optional: [ISettingRegistry],
+  optional: [],
 
   activate: (
     app: JupyterFrontEnd,
@@ -97,82 +70,103 @@ const plugin: JupyterFrontEndPlugin<void> = {
     notebookTracker: INotebookTracker,
     editorTracker: IEditorTracker,
     markdownViewerTracker: IMarkdownViewerTracker,
-    labShell: ILabShell,
-    settingRegistry?: ISettingRegistry
+    labShell: ILabShell
   ) => {
     console.log(
       "JupyterLab extension jupyterlab-knowledge-graph is activated!"
     );
 
-    if (settingRegistry) {
-      settingRegistry
-        .load(plugin.id)
-        .then((settings) => {
-          console.log(
-            "jupyterlab-knowledge-graph settings loaded:",
-            settings.composite
-          );
-        })
-        .catch((reason) => {
-          console.error(
-            "Failed to load settings for jupyterlab-knowledge-graph.",
-            reason
-          );
-        });
-    }
-
     const contents = app.serviceManager.contents;
+
     // Create model parser
     const parserRegistry = new ModelParserRegistry(contents);
     parserRegistry.register(".md", parseMarkdownDocument);
     parserRegistry.register(".ipynb", parseNotebookDocument);
 
-    // Create document registry
-    const docRegistry = new DocumentRegistry();
+    // Create record registry
+    const recordManager = new RecordManager();
 
     app.serviceManager.contents.fileChanged.connect(async (_, change) => {
+      // On create
       if (change.type == "new") {
         const path = (change.newValue as Contents.IModel).path;
         const model = await contents.get(path);
-        // Add model to document registry
+        // Add model to record registry
         try {
-          const document = await parserRegistry.parse(model);
-          docRegistry.add(document);
+          const record = await parserRegistry.parse(model);
+          recordManager.add(record);
         } catch (e) {
-          console.log(`Couldn't create Document for ${path} due to ${e}`);
+          console.log(`Couldn't create Record for ${path} due to ${e}`);
         }
-      } else if (change.type == "delete") {
+      }
+      // On delete
+      else if (change.type == "delete") {
         const path = (change.oldValue as Contents.IModel).path;
         // Remove by path
-        for (let doc of Object.values(docRegistry.documents)) {
+        for (let doc of Object.values(recordManager.records)) {
           if (doc.path == path) {
-            docRegistry.remove(doc);
+            recordManager.remove(doc);
             break;
           }
         }
       }
+      // On rename
+      else if (change.type == "rename") {
+        // Remove by path
+        const oldPath = (change.oldValue as Contents.IModel).path;
+        for (let doc of Object.values(recordManager.records)) {
+          if (doc.path == oldPath) {
+            recordManager.remove(doc);
+            break;
+          }
+        }
+        // Add under new path!
+        const newPath = (change.newValue as Contents.IModel).path;
+        const model = await contents.get(newPath);
+        // Add model to record registry
+        try {
+          const record = await parserRegistry.parse(model);
+          recordManager.add(record);
+        } catch (e) {
+          console.log(`Couldn't create Record for ${newPath} due to ${e}`);
+        }
+      }
+      // On save
+      else {
+        const path = (change.newValue as Contents.IModel).path;
+        const model = await contents.get(path);
+        // Add model to record registry
+        try {
+          const record = await parserRegistry.parse(model);
+          recordManager.add(record);
+        } catch (e) {
+          console.log(`Couldn't create Record for ${path} due to ${e}`);
+        }
+      }
     });
 
-    function onConnect() {
+    // Handle active record change
+    function onWidgetChanged() {
       const widget = labShell.currentWidget;
       if (widget === null) {
         return;
       }
-
+      // Set current record of graph
       let path: string;
       if (widget instanceof DocumentWidget) {
         path = widget.context.path;
-        content.currentDocumentPath = path;
+        content.currentRecordPath = path;
       } else {
         return;
       }
-      console.log(path);
     }
+    labShell.currentChanged.connect(onWidgetChanged);
 
-    labShell.currentChanged.connect(onConnect);
+    // Create graph
+    const content = new KnowledgeGraphWidget(recordManager);
 
-    const content = new KnowledgeGraphWidget(docRegistry); // Track and restore the widget state
-    content.documentSelected.connect((widget: any, path: string) => {
+    // Allow graph to set active record
+    content.recordSelected.connect((widget: any, path: string) => {
       docManager.openOrReveal(path);
     });
 
@@ -182,7 +176,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
     widget.title.closable = false;
 
     // Build initial graph
-    buildGraph(contents, docRegistry, parserRegistry);
+    buildInitialGraph(contents, recordManager, parserRegistry);
 
     new Promise((resolve) => setTimeout(resolve, 1000)).then(() => {
       if (!widget.isAttached) {

@@ -1,17 +1,25 @@
 import { Contents } from "@jupyterlab/services";
 import { IRenderMime, RenderMimeRegistry } from "@jupyterlab/rendermime";
 import { PathExt } from "@jupyterlab/coreutils";
-import { Document, Link } from "./document";
+import { Record, Link } from "./record";
 
 export interface ModelParser {
-  (model: Contents.IModel, resolver: IRenderMime.IResolver): Promise<Document>;
+  (model: Contents.IModel, resolver: IRenderMime.IResolver): Promise<Record>;
+}
+
+export interface ModelParsers {
+  [extension: string]: ModelParser;
 }
 
 export class ModelParserRegistry {
-  private _parsers: { [extension: string]: ModelParser } = {};
+  private _parsers: ModelParsers = {};
 
   register(ext: string, parser: ModelParser) {
     this._parsers[ext] = parser;
+  }
+
+  get parsers(): ModelParsers {
+    return this._parsers;
   }
 
   private readonly _contents: Contents.IManager;
@@ -19,7 +27,7 @@ export class ModelParserRegistry {
     this._contents = contents;
   }
 
-  async parse(model: Contents.IModel): Promise<Document> {
+  async parse(model: Contents.IModel): Promise<Record> {
     const resolver = new RenderMimeRegistry.UrlResolver({
       path: model.path,
       contents: this._contents,
@@ -39,7 +47,7 @@ export async function parseMarkdownBlocks(
   path: string,
   blocks: string[],
   resolver: IRenderMime.IResolver
-): Promise<Document> {
+): Promise<Record> {
   let titlePattern = /^\s*#\s*([^\n#]+.*)$|^\s*([^\n]+)\n(?:-+|=+)$/m;
   let linkPattern = /(?<img>!)?\[(?<name>[^\]]+)]\((?<url>[^)]+)\)/gm;
 
